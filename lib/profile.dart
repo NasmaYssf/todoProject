@@ -15,81 +15,35 @@ class Profile extends StatefulWidget {
 }
 
 class _ProfileState extends State<Profile> {
-  File? _imageFile;
   final ImagePicker _picker = ImagePicker();
-  ImageProvider _profileImage = const AssetImage('assets/images/profile01.jpg');
-
-  String _userEmail = '';
-  // String _userLocation = 'Dakar, Sénégal';
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    Future.microtask(() =>
-        Provider.of<WeatherProvider>(context, listen: false).loadWeather());
-
-    _loadUserData();
-  }
-
-  Future<void> _loadUserData() async {
-    final authProvider = Provider.of<LoginProvider>(context, listen: false);
-    final accountId = authProvider.currentUser?.accountId ?? 0;
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    await userProvider.loadLoggedInUser(accountId);
-
-    final user = userProvider.currentUser;
-    if (user != null) {
-      setState(() {
-        _userEmail = user.email;
-        if (user.profilePhotoPath != null &&
-            File(user.profilePhotoPath!).existsSync()) {
-          _imageFile = File(user.profilePhotoPath!);
-          _profileImage = FileImage(_imageFile!);
-        }
-        _isLoading = false;
-      });
-    } else {
-      setState(() => _isLoading = false);
-    }
+    Future.microtask(() {
+      final authProvider = Provider.of<LoginProvider>(context, listen: false);
+      final accountId = authProvider.currentUser?.accountId ?? 0;
+      Provider.of<UserProvider>(context, listen: false).loadLoggedInUser(accountId);
+      Provider.of<WeatherProvider>(context, listen: false).loadWeather();
+    });
   }
 
   Future<void> _pickImage() async {
     final XFile? pickedFile =
     await _picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+
     if (pickedFile != null) {
-      setState(() {
-        _imageFile = File(pickedFile.path);
-        _profileImage = FileImage(_imageFile!);
-      });
-      await _saveProfileAutomatically();
-    }
-  }
+      final authProvider = Provider.of<LoginProvider>(context, listen: false);
+      final accountId = authProvider.currentUser?.accountId ?? 0;
 
-  Future<void> _saveProfileAutomatically() async {
-    if (_imageFile == null) return;
-    final photoPath = _imageFile!.path;
-    final userProvider = Provider.of<UserProvider>(context, listen: false);
-    final authProvider = Provider.of<LoginProvider>(context, listen: false);
-    final accountId = authProvider.currentUser?.accountId ?? 0;
+      final success = await Provider.of<UserProvider>(context, listen: false)
+          .updateProfilePhoto(accountId, pickedFile.path);
 
-    final success = await userProvider.updateProfilePhoto(accountId, photoPath);
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text("✅ Photo de profil mise à jour"),
-            backgroundColor: Colors.black,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
-            duration: const Duration(seconds: 2),
-          ),
-      );
-      await _loadUserData();
-    } else {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text("✅ Photo de profil mise à jour"),
-          backgroundColor: Colors.red,
+          content: Text(
+              success ? "✅ Photo de profil mise à jour" : "❌ Échec de la mise à jour"),
+          backgroundColor: success ? Colors.black : Colors.red,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
           duration: const Duration(seconds: 2),
@@ -128,30 +82,16 @@ class _ProfileState extends State<Profile> {
     );
   }
 
-  Widget _buildTaskStats() {
-    final userProvider = Provider.of<UserProvider>(context);
-
+  Widget _buildTaskStats(UserProvider userProv) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        _buildStatCard(
-          "Complétées",
-          "${userProvider.completedTasks}",
-          Color(0xFFC8E9E8),
-          Colors.teal,
-        ),
-        _buildStatCard(
-          "En attente",
-          "${userProvider.pendingTasks}",
-          Color(0xFFF6E1A7),
-          Colors.white,
-        ),
-        _buildStatCard(
-          "Manquées",
-          "${userProvider.missedTasks}",
-          Color(0xFFE39E9F),
-          Colors.white,
-        ),
+        _buildStatCard("Complétées", "${userProv.completedTasks}",
+            const Color(0xFFC8E9E8), Colors.teal),
+        _buildStatCard("En attente", "${userProv.pendingTasks}",
+            const Color(0xFFF6E1A7), Colors.white),
+        _buildStatCard("Manquées", "${userProv.missedTasks}",
+            const Color(0xFFE39E9F), Colors.white),
       ],
     );
   }
@@ -174,14 +114,9 @@ class _ProfileState extends State<Profile> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            "Addresse email",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.teal,
-            ),
-          ),
+          const Text("Adresse email",
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: Colors.teal)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -190,8 +125,8 @@ class _ProfileState extends State<Profile> {
               Expanded(
                 child: Text(
                   email.isEmpty ? "Non renseigné" : email,
-                  style:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ),
             ],
@@ -199,25 +134,19 @@ class _ProfileState extends State<Profile> {
           const SizedBox(height: 16),
           Container(height: 0.8, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          const Text(
-            "Localisation",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-              color: Colors.teal,
-            ),
-          ),
+          const Text("Localisation",
+              style: TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600, color: Colors.teal)),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, color: Colors.black, size: 18),
+              const Icon(Icons.location_on_outlined,
+                  color: Colors.black, size: 18),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  location,
-                  style:
-                  const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
+                child: Text(location,
+                    style: const TextStyle(
+                        fontSize: 14, fontWeight: FontWeight.w600)),
               ),
             ],
           ),
@@ -229,14 +158,16 @@ class _ProfileState extends State<Profile> {
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
-    final weatherProv = Provider.of<WeatherProvider>(context);
     final height = mediaQuery.size.height;
     final width = mediaQuery.size.width;
+
+    final userProv = Provider.of<UserProvider>(context);
+    final weatherProv = Provider.of<WeatherProvider>(context);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF0F4F8),
       body: SafeArea(
-        child: _isLoading
+        child: userProv.isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
           padding: EdgeInsets.symmetric(
@@ -261,24 +192,12 @@ class _ProfileState extends State<Profile> {
               ),
               SizedBox(height: height * 0.025),
               Center(
-<<<<<<< HEAD
-                child: Text(
-                  "Mon profil",
-                  style: TextStyle(
-                    fontSize: width * 0.09,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.teal[800],
-                    letterSpacing: 1.1,
-                  ),
-                ),
-=======
-                child: Text("Mon compte",
+                child: Text("Mon profil",
                     style: TextStyle(
                         fontSize: width * 0.09,
                         fontWeight: FontWeight.bold,
                         color: Colors.teal[800],
                         letterSpacing: 1.1)),
->>>>>>> 738d3c0 (Initial commit)
               ),
               SizedBox(height: height * 0.04),
               Center(
@@ -293,7 +212,14 @@ class _ProfileState extends State<Profile> {
                         CircleAvatar(
                           radius: width * 0.20,
                           backgroundColor: Colors.white,
-                          backgroundImage: _profileImage,
+                          backgroundImage: userProv.currentUser
+                              ?.profilePhotoPath !=
+                              null
+                              ? FileImage(File(userProv
+                              .currentUser!.profilePhotoPath!))
+                              : const AssetImage(
+                              'assets/images/profile01.jpg')
+                          as ImageProvider,
                         ),
                         Container(
                           decoration: BoxDecoration(
@@ -317,10 +243,11 @@ class _ProfileState extends State<Profile> {
                 ),
               ),
               SizedBox(height: height * 0.1),
-              _buildTaskStats(),
+              _buildTaskStats(userProv),
               SizedBox(height: height * 0.06),
-              // _buildProfileInfoCombined(_userEmail, _userLocation),
-              _buildProfileInfoCombined(_userEmail, weatherProv.location)
+              _buildProfileInfoCombined(
+                  userProv.currentUser?.email ?? "",
+                  weatherProv.location),
             ],
           ),
         ),
@@ -328,3 +255,4 @@ class _ProfileState extends State<Profile> {
     );
   }
 }
+

@@ -4,7 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
 
-  static const String baseUrl = "http://192.168.1.6/todo";
+  static const String baseUrl = "http://192.168.1.9/todo";
 
   static Future<Map<String,dynamic>> login(String email, String password) async {
     final res = await http.post(
